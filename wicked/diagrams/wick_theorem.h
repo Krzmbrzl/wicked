@@ -168,6 +168,11 @@ private:
   std::tuple<OperatorProduct, CompositeContraction, scalar_t>
   canonicalize_contraction_graph(const OperatorProduct &ops,
                                  const CompositeContraction &contractions);
+
+  // Old implementation of the canonicalization algorithm. Kept only for comparison with new one and should be removed afterwards.
+  std::tuple<OperatorProduct, CompositeContraction, scalar_t>
+  canonicalize_contraction_graph_old(const OperatorProduct &ops,
+                                 const CompositeContraction &contractions);
 };
 
 #endif // _wicked_diag_theorem_h_

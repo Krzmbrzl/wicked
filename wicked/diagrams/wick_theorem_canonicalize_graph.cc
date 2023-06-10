@@ -157,6 +157,90 @@ WickTheorem::canonicalize_contraction_graph(
         print_contraction_graph(ops, contractions, input_ops_perm,
                                 input_contr_perm););
 
+  // Find equivalent columns - aka: ones that we are allowed to permutnopse
+  // TODO: The current representation duplicates data in the sense that if column
+  // a is permutable with column b, we also explicitly store that b can be exchanged
+  // for a.
+  const std::size_t operatorAmount = ops.size();
+  std::vector<std::vector<std::size_t>> equivalentOperators(operatorAmount);
+
+  for (std::size_t i = 0; i < operatorAmount; ++i) {
+    for (std::size_t j = 0; j < operatorAmount; ++j) {
+      // check if commuting operators i and j changes the contraction
+      if (do_contractions_commute(i, j, ops, contractions)) {
+		  equivalentOperators[i].push_back(j);
+      }
+    }
+  }
+
+  PRINT(
+      PrintLevel::Detailed, cout << "\n  Commutable operators:" << endl;
+      for (std::size_t i = 0; i < equivalentOperators.size(); ++i) {
+        cout << "  With op " << i << ": ";
+        PRINT_ELEMENTS(equivalentOperators[i]);
+        cout << endl;
+      };
+      cout << endl;);
+
+  // 1. Permute the order of operators in such a way that one of the contractions
+  // the new leftmost operator is involved in, is as "small" (in the sense as used
+  // in the graph_less implementation) as possible.
+  // (regardless of which row that'll end up being in)
+  if (!equivalentOperators.at(0).empty()) {
+	  const GraphMatrix *minContraction = nullptr;
+	  std::size_t exchangeWith = 0;
+	  bool canDecide = true;
+
+	  for (const auto &current : contractions) {
+		  for (std::size_t opIdx : equivalentOperators[0]) {
+			  const auto &currentContraction = current[opIdx];
+
+			  if (!minContraction) {
+				  if (currentContraction < (*minContraction)) {
+				  minContraction = &currentContraction;
+				  exchangeWith = opIdx;
+				} else if (currentContraction == (*minContraction)) {
+					// If we can create the same contraction for the leftmost operator by means
+					// of different operator ordering or by considering different contractions,
+					// the row order is not uniquely determined by only considering the first
+					// operator.
+					canDecide = false;
+				}
+		  }
+
+			  if (!canDecide) {
+				  // TODO (maybe this can be dealt with by some sort of recursive algorithm that then takes the next
+				  // operator into account)
+				  throw std::runtime_error("Unable to decide during graph canonicalization");
+			  }
+	  }
+
+	  if (minContraction) {
+		  // TODO
+		  std::swap(ops[0], ops[exchangeWith]);
+		  // TODO: Do we also need to swap some stuff around in the contractions themselves?
+	  }
+  }
+
+	  // TODO: We need to fully fix the order of operators here
+
+  // TODO: Sort the contractions such that the they are descending from top to bottom
+
+
+  return std::make_tuple(canonical_ops, canonical_contr, canonical_sign);
+}
+
+std::tuple<OperatorProduct, CompositeContraction, scalar_t>
+WickTheorem::canonicalize_contraction_graph_old(
+    const OperatorProduct &ops, const CompositeContraction &contractions) {
+
+  PRINT(PrintLevel::Detailed,
+        cout << "  Graph of the contraction to canonicalize:" << endl;
+        const auto input_ops_perm = iota_vector<int>(ops.size());
+        const auto input_contr_perm = iota_vector<int>(contractions.size());
+        print_contraction_graph(ops, contractions, input_ops_perm,
+                                input_contr_perm););
+
   const int nops = ops.size();
 
   // create a matrix that tells us if we can permute the position of two
